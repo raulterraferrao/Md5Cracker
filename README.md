@@ -12,11 +12,11 @@ It is a code made in C that use pthreads which is faster than Md5-serial.c cause
 It is a code made in Cuda that use your GPU instead of your CPU to find the corresponding password of your md5 hash, it is much faster than md5-serial.c and md5pthr.c but it needs a Nvidia grafic card and Cuda installed in your machine.
 
 ##Compiling##
-###Md5-serial.c###  : gcc Md5-serial.c -o Md5-serial
+*Md5-serial.c*  : gcc Md5-serial.c -o Md5-serial
 
-###Md5pthr.c###  : gcc Md5pthr.c -o Md5pthr -lcrypto -lprthread -lm (maybe you need to install these libraries.
+*Md5pthr.c*  : gcc Md5pthr.c -o Md5pthr -lcrypto -lprthread -lm (maybe you need to install these libraries.
 
-###Md5GPU.cu###  : nvcc Md5GPU.cu -o Md5GPU (you need to make sure that md5.cu is in the same folder as Md5GPU.cu)
+*Md5GPU.cu*  : nvcc Md5GPU.cu -o Md5GPU (you need to make sure that md5.cu is in the same folder as Md5GPU.cu)
 
 ##Run##
 ./"Program's name" "md5hash"
