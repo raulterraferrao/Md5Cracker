@@ -15,6 +15,10 @@
 #define MIN_HASH_PER_KERNEL 256
 
 
+#define CONST_CHARSET "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+#define CONST_CHARSET_LENGTH (sizeof(CONST_CHARSET) - 1)
+
+
 
 #define cudaCheckErrors(msg) \
     do { \
@@ -86,10 +90,16 @@ __device__ void d_md5_to_ints(unsigned char* md5, uint *r0, uint *r1, uint *r2, 
     *r3 = v3;
 }
 
-__device__ inline int my_strlen(unsigned char* str){
+__device__ inline int my_strlen(char* str){
 	int i = 0;
 	while(str[i++] != '\0');
 	return --i;
+}
+
+int host_my_strlen(char* str){
+    int i = 0;
+    while(str[i++] != '\0');
+    return --i;
 }
 
 
@@ -100,25 +110,32 @@ __device__ void my_strcpy(unsigned char *dest, const unsigned char *src){
   while (src[i++] != '\0');
 }
 
-__device__ void converter(ulong numeroEntrada, unsigned char str[MAX_STR_LENGTH])
+
+//This function transform the respective number that is passed as numeroEntrada to a string with the chars of charset
+
+__device__ void converter(ulong numeroEntrada, unsigned char str[MAX_STR_LENGTH],char* charset)
 {
-	int i = 0;  // To store current index in str which is result
+            int size;
+            size = my_strlen(charset);
+
+
+            int i = 0;  // To store current index in str which is result
 
 	while (numeroEntrada>0)
 	{
 		// Find remainder
-		ulong rem = numeroEntrada%26;
+		ulong rem = numeroEntrada%size;
 
 		// If remainder is 0, then a 'Z' must be there in output
 		if (rem==0)
 		{
-			str[i++] = 'z';
-			numeroEntrada = (numeroEntrada/26)-1;
+			str[i++] = charset[size-1];
+			numeroEntrada = (numeroEntrada/size)-1;
 		}
 		else // If remainder is non-zero
 		{
-			str[i++] = (rem-1) + 'a';
-			numeroEntrada = numeroEntrada/26;
+			str[i++] = charset[(rem-1)];
+			numeroEntrada = numeroEntrada/size;
 		}
 	}
 	str[i] = '\0';
@@ -127,7 +144,7 @@ __device__ void converter(ulong numeroEntrada, unsigned char str[MAX_STR_LENGTH]
 
 }
 
-__global__ void crack(unsigned char *password, ulong* starting_number , uint* d_current_hash_per_kernel ,volatile int* flag ,uint* d_v1, uint* d_v2, uint* d_v3, uint* d_v4 , DeviceReturnStruct *device_return)
+__global__ void crack(unsigned char *password, ulong* starting_number , uint* d_current_hash_per_kernel ,volatile int* flag ,uint* d_v1, uint* d_v2, uint* d_v3, uint* d_v4 ,char* charset, DeviceReturnStruct *device_return)
 {
 	const ulong thread_per_block = THREADS_PER_BLOCK;
 	const ulong blocks = BLOCKS;
@@ -137,6 +154,9 @@ __global__ void crack(unsigned char *password, ulong* starting_number , uint* d_
 	const uint v2 = *d_v2;
 	const uint v3 = *d_v3;
 	const uint v4 = *d_v4;
+
+            int size;
+            size = my_strlen(charset);
 
 	const uint current_hash_per_kernel = *d_current_hash_per_kernel;
 
@@ -156,13 +176,13 @@ __global__ void crack(unsigned char *password, ulong* starting_number , uint* d_
 
 	while(*flag != 1 && count++ < current_hash_per_kernel ){
 		totalLen = 1;
-		len = idx /(TAM_ALFABETO + 1);
+		len = idx /(size + 1);
 		while(len > 0){
-			len /= (TAM_ALFABETO + 1);
+			len /= (size + 1);
 			totalLen++;
 		}
 
-		converter(idx, palavra);
+		converter(idx, palavra,charset);
 		md5_vfy(palavra,totalLen, &c1, &c2, &c3, &c4);
 
 		if(c1 == v1 && c2 == v2 && c3 == v3 && c4 == v4)
@@ -177,35 +197,87 @@ __global__ void crack(unsigned char *password, ulong* starting_number , uint* d_
 
 }
 
-void h_converter(ulong numeroEntrada, unsigned char pointerPalavra[][255])
+void h_converter(ulong numeroEntrada, unsigned char pointerPalavra[][255],char* charset)
 {
-	unsigned char* str = *pointerPalavra;  // To store result (Excel column name)
+	int size;
+             size = host_my_strlen(charset);
+
+            unsigned char* str = *pointerPalavra;  // To store result (Excel column name)
 	int i = 0;  // To store current index in str which is result
 
 	while (numeroEntrada>0)
 	{
 		// Find remainder
-		ulong rem = numeroEntrada%26;
+		ulong rem = numeroEntrada%size;
 
 		// If remainder is 0, then a 'Z' must be there in output
 		if (rem==0)
 		{
-			str[i++] = 'z';
-			numeroEntrada = (numeroEntrada/26)-1;
+			str[i++] = charset[size-1];
+			numeroEntrada = (numeroEntrada/size)-1;
 		}
 		else // If remainder is non-zero
 		{
-			str[i++] = (rem-1) + 'a';
-			numeroEntrada = numeroEntrada/26;
+			str[i++] = charset[(rem-1)];
+			numeroEntrada = numeroEntrada/size;
 		}
 	}
 	str[i] = '\0';
 
 }
 
+void n_converter(ulong numeroEntrada, unsigned char pointerPalavra[][255],char* charset)
+{
+    int size;
+    size = host_my_strlen(charset);
+    printf("%d",size);
+
+    unsigned char* str = *pointerPalavra;  // To store result (Excel column name)
+    int i = 0;  // To store current index in str which is result
+
+    while (numeroEntrada>0)
+    {
+        // Find remainder
+        ulong rem = numeroEntrada%size;
+
+        // If remainder is 0, then a 'Z' must be there in output
+        if (rem==0)
+        {
+            str[i++] = charset[size-1];
+            numeroEntrada = (numeroEntrada/size)-1;
+        }
+        else // If remainder is non-zero
+        {
+            str[i++] = charset[(rem-1)];
+            numeroEntrada = numeroEntrada/size;
+        }
+    }
+    str[i] = '\0';
+
+}
+
 int main(int argc,  char *argv[]){
 
-	unsigned char *d_password;
+	/*======================================
+                RESPECTIVE NUMBERS OF CHARSET
+            ========================================
+
+            0: a-z
+            1: A-Z
+            2: 0-9
+            3: a-z A-Z
+            4: a-z 0-9
+            5: A-Z 0-9
+            6: a-z A-z 0-9
+
+            */
+            char *charset,*d_charset;
+            int charset_choice,charset_flag = 0,hash_flag = 0;
+            unsigned char hash_entrada[TAM_HASH];
+            //unsigned char teste[255] = "";
+            //ulong testenumero;
+
+            unsigned char *d_password;
 	ulong* d_starting_number;
 	ulong h_starting_number = 0;
 	int *d_flag;
@@ -220,19 +292,95 @@ int main(int argc,  char *argv[]){
 	uint h_current_hash_per_kernel = MIN_HASH_PER_KERNEL;
 	uint* d_current_hash_per_kernel;
 
+             printf("\n\nCuda Md5 Brute Force Cracker - made by: Raul Terra Ferrão & Victor Terra Ferrão\n\n");
 
-	//divido o hash em 4 partes
-	md5_to_ints((unsigned char*)argv[1],&v1,&v2,&v3,&v4);
+              do{
+                     printf("------- Please paste the md5 hash below -------\n\n");
+                     scanf("%s",hash_entrada);
+                     (host_my_strlen((char*)hash_entrada) != 32 ) ? (printf("\n\nYour md5 hash is wrong, it must be 32 char length \n\n")) : (hash_flag=1);
+            }while(hash_flag == 0);
 
-	//Saida de erro caso não tiver um hash como entrada no argumento
-    if ( argc != 2 )
-    {
-        fprintf( stderr, "Erro na entrada de argumentos %s \n", argv[0] );
-        exit( 1 );
-    }
+             printf("\nThe hash is : %s\n\n",hash_entrada);
 
-    //Copia o argumento para a variavel hash_entrada
-    //memcpy(hash_entrada,argv[1], TAM_HASH);
+             do{
+                     printf("------- Please choose the number of the charset that you want -------\n");
+                     printf("0: a-z\n");
+                     printf("1: A-Z\n");
+                     printf("2: 0-9\n");
+                     printf("3: a-z A-Z\n");
+                     printf("4: a-z 0-9\n");
+                     printf("5: A-Z 0-9\n");
+                     printf("6: a-z A-z 0-9\n");
+                     printf("----------------------------------------------------------------------\n\n");
+                     scanf("%d",&charset_choice);
+                     (charset_choice > 6 ||  charset_choice < 0 ) ? (printf("\n\nYou need to write a number between 0 and 6\n\n")) : (charset_flag=1);
+             }while(charset_flag == 0);
+
+             printf("The number of charset is : %d\n\n",charset_choice);
+
+             switch(charset_choice){
+
+                case 0:
+                      charset =  (char*) malloc (sizeof (char) * 26);
+                      strcpy (charset,"abcdefghijklmnopqrstuvwxyz");
+                      cudaMalloc( (void**)&d_charset, sizeof(char) * 26);
+                      cudaCheckErrors("d_charset");
+                      cudaMemcpy( d_charset, charset, sizeof(char) * 26, cudaMemcpyHostToDevice);
+                      printf("%s\n",charset);
+                break;
+                case 1:
+                      charset =  (char*) malloc (sizeof (char) * 26);
+                      strcpy (charset,"ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+                      cudaMalloc( (void**)&d_charset, sizeof(char) * 26);
+                      cudaCheckErrors("d_charset");
+                      cudaMemcpy( d_charset, charset, sizeof(char) * 26, cudaMemcpyHostToDevice);
+                      printf("%s\n",charset);
+                break;
+                case 2:
+                      charset =  (char*) malloc (sizeof (char) * 10);
+                      strcpy (charset,"0123456789");
+                      cudaMalloc( (void**)&d_charset, sizeof(char) * 10);
+                      cudaCheckErrors("d_charset");
+                      cudaMemcpy( d_charset, charset, sizeof(char) * 10, cudaMemcpyHostToDevice);
+                      printf("%s\n",charset);
+                break;
+                case 3:
+                      charset =  (char*) malloc (sizeof (char) * 52);
+                      strcpy (charset,"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ");
+                      cudaMalloc( (void**)&d_charset, sizeof(char) * 52);
+                      cudaCheckErrors("d_charset");
+                      cudaMemcpy( d_charset, charset, sizeof(char) * 52, cudaMemcpyHostToDevice);
+                      printf("%s\n",charset);
+                break;
+                case 4:
+                      charset =  (char*) malloc (sizeof (char) * 36);
+                      strcpy (charset,"abcdefghijklmnopqrstuvwxyz0123456789");
+                      cudaMalloc( (void**)&d_charset, sizeof(char) * 36);
+                      cudaCheckErrors("d_charset");
+                      cudaMemcpy( d_charset, charset, sizeof(char) * 36, cudaMemcpyHostToDevice);
+                      printf("%s\n",charset);
+                break;
+                case 5:
+                      charset =  (char*) malloc (sizeof (char) * 36);
+                      strcpy (charset,"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
+                      cudaMalloc( (void**)&d_charset, sizeof(char) * 36);
+                      cudaCheckErrors("d_charset");
+                      cudaMemcpy( d_charset, charset, sizeof(char) * 36, cudaMemcpyHostToDevice);
+                      printf("%s\n",charset);
+                break;
+                case 6:
+                      charset =  (char*) malloc (sizeof (char) * 62);
+                      strcpy (charset,"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
+                      cudaMalloc( (void**)&d_charset, sizeof(char) * 62);
+                      cudaCheckErrors("d_charset");
+                      cudaMemcpy( d_charset, charset, sizeof(char) * 62, cudaMemcpyHostToDevice);
+                      printf("%s\n",charset);
+                break;
+             }
+
+            md5_to_ints((unsigned char*)hash_entrada,&v1,&v2,&v3,&v4);
+            //printf("v1,v2,v3,v4 %u,%u,%u,%u\n",v1,v2,v3,v4);
+
 
 
 	cudaMalloc( (void**)&d_password, MAX_STR_LENGTH*sizeof(unsigned char));
@@ -251,6 +399,8 @@ int main(int argc,  char *argv[]){
 	cudaCheckErrors("d_v4");
 	cudaMalloc( (void**)&d_current_hash_per_kernel, sizeof(uint));
 	cudaCheckErrors("d_current_hash_per_kernel");
+
+
 
 	cudaMalloc( (void**)&d_current_hash_per_kernel, sizeof(uint));
 	cudaMalloc( (void**)&d_device_return, sizeof(DeviceReturnStruct));
@@ -288,7 +438,7 @@ int main(int argc,  char *argv[]){
 	int i = 0, count = 0;
 	unsigned char palavra[255] = "";
 	while(h_flag != 1){
-		crack<<<dimGrid, dimBlock>>>(d_password, d_starting_number , d_current_hash_per_kernel ,d_flag, d_v1, d_v2, d_v3, d_v4, d_device_return);
+		crack<<<dimGrid, dimBlock>>>(d_password, d_starting_number , d_current_hash_per_kernel ,d_flag, d_v1, d_v2, d_v3, d_v4,d_charset, d_device_return);
 		cudaCheckErrors("crack");
 		//cudaCheckErrors("cudaDeviceSynchronize();");
 		cudaMemcpy( &h_flag, d_flag,sizeof(int), cudaMemcpyDeviceToHost );
@@ -302,11 +452,11 @@ int main(int argc,  char *argv[]){
 		if(h_current_hash_per_kernel  > MAX_HASH_PER_KERNEL){
 			h_current_hash_per_kernel = MAX_HASH_PER_KERNEL;
 		}
-		h_converter(currentNumber, &palavra);
+		h_converter(currentNumber, &palavra,charset);
 
 		if(count++%1 == 0){
 			printf("i = %d, number = %lu, palavra = %s\n",i, currentNumber, palavra);
-			printf("hash_entrada = %s\n",argv[1]);
+			//printf("hash_entrada = %s\n",argv[1]);
 		}
 
 		cudaMemcpy( d_current_hash_per_kernel, &h_current_hash_per_kernel, sizeof(uint), cudaMemcpyHostToDevice );
