@@ -1,4 +1,4 @@
-# Md5Cracker Serial and Pthread Multicore version
+# Brute Force Md5Cracker Serial and Pthread Multicore version
 It is a simple md5Cracker written in C that pass through all lowercase letters a-z starting at "a" and stop when reach the corresponding password.
 You need to pass as argument the md5 hash e.g 5f4dcc3b5aa765d61d8327deb882cf99 (it is the md5 of "password").
 
@@ -19,7 +19,7 @@ It is a code made in C that use pthreads which is faster than Md5-serial.c cause
 Example:
 ./Md5-serial 5f4dcc3b5aa765d61d8327deb882cf99
 
-# Md5Cracker CUDA Manycore Version
+# Brute Force Md5Cracker CUDA Manycore Version
  
 ##Md5GPU.cu and md5.cu##
 It is a code made in Cuda that use your GPU instead of your CPU to find the corresponding password of your md5 hash, it is much faster than md5-serial.c and md5pthr.c but it needs a Nvidia grafic card and Cuda installed in your machine.
